@@ -476,7 +476,7 @@ def run_scheduled_speed_test():
         monitoring_data['fast_com_speed'] = speed_result
         monitoring_data['last_fast_com_test'] = datetime.now().isoformat()
         
-        # Update bandwidth tracking from Fast.com results
+        # Update bandwidth tracking from speed test results
         if speed_result and 'download_mbps' in speed_result:
             download_speed = speed_result['download_mbps']
             
