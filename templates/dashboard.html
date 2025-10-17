@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starshield Network Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-online { color: #28a745; }
+        .status-offline { color: #dc3545; }
+        .status-error { color: #ffc107; }
+        .metric-card { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .performance-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .history-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .refresh-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .bandwidth-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .bandwidth-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+        .performance-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 2px;
+        }
+        .badge-best { background: #28a745; }
+        .badge-worst { background: #dc3545; }
+        .badge-current { background: #17a2b8; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center my-4">
+                    <i class="fas fa-satellite-dish"></i> Starshield Network Monitor
+                </h1>
+            </div>
+        </div>
+
+        <!-- Interface Selection -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-network-wired"></i> Interface Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="interfaceSelect" class="form-label">Select Network Interface to Monitor:</label>
+                                <select class="form-select" id="interfaceSelect" onchange="selectInterface()">
+                                    <option value="">Loading interfaces...</option>
+                                </select>
+                                <div class="form-text">Choose which network interface to monitor for latency, bandwidth, and uptime.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-primary" onclick="refreshInterfaces()">
+                                        <i class="fas fa-sync-alt"></i> Refresh Interfaces
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Status Row -->
+        <div class="row mt-4">
+            <!-- Status Card -->
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="text-center">
+                        <i class="fas fa-circle fa-2x mb-3" id="statusIcon"></i>
+                        <div class="metric-value" id="statusText">Unknown</div>
+                        <div class="metric-label">Network Status</div>
+                        <div class="mt-2">
+                            <small id="interfaceInfo">Checking interface...</small>
+                        </div>
+                        <div class="mt-2">
+                            <small id="lastDownTime">Last down: Never</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Latency Card -->
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="text-center">
+                        <i class="fas fa-tachometer-alt fa-2x mb-3"></i>
+                        <div class="metric-value" id="latencyValue">0</div>
+                        <div class="metric-label">Current Latency (ms)</div>
+                        <div class="mt-2">
+                            <small id="dnsLatency">DNS: 0ms</small>
+                        </div>
+                        <div class="mt-2">
+                            <small id="worstLatency">Worst: 0ms</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Uptime Card -->
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="text-center">
+                        <i class="fas fa-clock fa-2x mb-3"></i>
+                        <div class="metric-value" id="uptimeValue">0</div>
+                        <div class="metric-label">Uptime (checks)</div>
+                        <div class="mt-2">
+                            <small id="lastCheck">Last check: Never</small>
+                        </div>
+                        <div class="mt-2">
+                            <small id="downtimeCount">Downtimes: 0</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bandwidth Card -->
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="text-center">
+                        <i class="fas fa-chart-line fa-2x mb-3"></i>
+                        <div class="metric-value" id="bandwidthValue">0</div>
+                        <div class="metric-label">Current Bandwidth (MB)</div>
+                        <div class="bandwidth-bar">
+                            <div class="bandwidth-fill" id="bandwidthBar" style="width: 0%"></div>
+                        </div>
+                        <div class="mt-2">
+                            <small id="bandwidthDetails">RX: 0 MB | TX: 0 MB</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics Row -->
+        <div class="row mt-4">
+            <!-- Best/Worst Performance -->
+            <div class="col-md-6">
+                <div class="metric-card performance-card">
+                    <div class="text-center">
+                        <h5><i class="fas fa-trophy"></i> Speed Test Records</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="performance-badge badge-best">
+                                    <i class="fas fa-arrow-up"></i> Highest Speed
+                                </div>
+                                <div class="mt-2">
+                                    <strong id="bestBandwidth">0 Mbps</strong>
+                                </div>
+                                <small class="text-white-50">Download</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="performance-badge badge-worst">
+                                    <i class="fas fa-arrow-down"></i> Lowest Speed
+                                </div>
+                                <div class="mt-2">
+                                    <strong id="worstBandwidth">∞ Mbps</strong>
+                                </div>
+                                <small class="text-white-50">Download</small>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-white-50">
+                                <i class="fas fa-clock"></i> Tests every 3 minutes
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fast.com Speed Test -->
+            <div class="col-md-6">
+                <div class="metric-card history-card">
+                    <div class="text-center">
+                        <h5><i class="fas fa-bolt"></i> Speed Test Results</h5>
+                        <div id="fastComResults">
+                            <p class="text-muted">No speed test data yet...</p>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-light btn-sm" onclick="runSpeedTest()">
+                                <i class="fas fa-bolt"></i> Run Test
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Speed Test Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-tachometer-alt"></i> Speed Testing & Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div id="speedTestResults">
+                                    <p class="text-muted">Click "Run Speed Test" to test network performance</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-primary w-100 mb-2" onclick="runSpeedTest()">
+                                    <i class="fas fa-bolt"></i> Run Speed Test
+                                </button>
+                                <button class="btn btn-info w-100 mb-2" onclick="refreshData()">
+                                    <i class="fas fa-sync-alt"></i> Refresh Data
+                                </button>
+                                <button class="btn btn-warning w-100 mb-2" onclick="resetMetrics()">
+                                    <i class="fas fa-undo"></i> Reset Metrics
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Info -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> Network Information & Performance History</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Gateway:</strong> <span id="gatewayInfo">100.64.0.1</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>DNS Server:</strong> <span id="dnsInfo">198.54.100.65</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Current Interface:</strong> <span id="interfaceName">Ethernet 4</span>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-12">
+                                <h6>Recent Performance (Last 10 entries):</h6>
+                                <div id="performanceHistory" class="small">
+                                    <p class="text-muted">Performance data will appear here...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-outline-primary refresh-btn" onclick="refreshData()">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let refreshInterval;
+
+        function updateStatus(data) {
+            // Update status
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            const interfaceInfo = document.getElementById('interfaceInfo');
+            const lastDownTime = document.getElementById('lastDownTime');
+            
+            if (data.status === 'online') {
+                statusIcon.className = 'fas fa-circle fa-2x mb-3 status-online';
+                statusText.textContent = 'Online';
+                statusText.className = 'metric-value status-online';
+            } else if (data.status === 'offline') {
+                statusIcon.className = 'fas fa-circle fa-2x mb-3 status-offline';
+                statusText.textContent = 'Offline';
+                statusText.className = 'metric-value status-offline';
+            } else {
+                statusIcon.className = 'fas fa-circle fa-2x mb-3 status-error';
+                statusText.textContent = 'Error';
+                statusText.className = 'metric-value status-error';
+            }
+
+            // Update interface info
+            interfaceInfo.textContent = data.interface_found ? 
+                `Interface: ${data.selected_interface}` : 
+                'Interface not found';
+
+            // Update last down time
+            lastDownTime.textContent = data.last_down_time ? 
+                `Last down: ${new Date(data.last_down_time).toLocaleString()}` : 
+                'Last down: Never';
+
+            // Update latency
+            document.getElementById('latencyValue').textContent = data.latency || '0';
+            document.getElementById('dnsLatency').textContent = `DNS: ${data.dns_latency || 0}ms`;
+            document.getElementById('worstLatency').textContent = `Worst: ${data.worst_latency || 0}ms`;
+
+            // Update uptime
+            document.getElementById('uptimeValue').textContent = data.uptime || '0';
+            
+            const lastCheck = data.last_check ? 
+                new Date(data.last_check).toLocaleTimeString() : 
+                'Never';
+            document.getElementById('lastCheck').textContent = `Last check: ${lastCheck}`;
+            document.getElementById('downtimeCount').textContent = `Downtimes: ${data.downtime_count || 0}`;
+
+            // Update bandwidth
+            const rxMB = ((data.bandwidth?.rx || 0) / 1024 / 1024).toFixed(1);
+            const txMB = ((data.bandwidth?.tx || 0) / 1024 / 1024).toFixed(1);
+            const totalMB = (parseFloat(rxMB) + parseFloat(txMB)).toFixed(1);
+            
+            document.getElementById('bandwidthValue').textContent = totalMB;
+            document.getElementById('bandwidthDetails').textContent = `RX: ${rxMB} MB | TX: ${txMB} MB`;
+            
+            // Update bandwidth bar
+            const bandwidthBar = document.getElementById('bandwidthBar');
+            const percentage = Math.min((parseFloat(totalMB) / 100) * 100, 100);
+            bandwidthBar.style.width = `${percentage}%`;
+
+            // Update performance records (Fast.com speeds)
+            document.getElementById('bestBandwidth').textContent = `${(data.best_bandwidth || 0).toFixed(1)} Mbps`;
+            document.getElementById('worstBandwidth').textContent = data.worst_bandwidth === Infinity ? 
+                '∞ Mbps' : `${(data.worst_bandwidth || 0).toFixed(1)} Mbps`;
+
+            // Update network info
+            document.getElementById('gatewayInfo').textContent = data.gateway || '100.64.0.1';
+            document.getElementById('dnsInfo').textContent = data.dns || '198.54.100.65';
+            document.getElementById('interfaceName').textContent = data.selected_interface || 'Ethernet 4';
+
+            // Update Fast.com results
+            updateFastComResults(data.fast_com_speed, data.last_fast_com_test);
+
+            // Update performance history
+            updatePerformanceHistory(data.performance_history);
+        }
+
+        function updateFastComResults(fastComSpeed, lastTest) {
+            const container = document.getElementById('fastComResults');
+
+            if (!fastComSpeed) {
+                container.innerHTML = '<p class="text-muted">No speed test data yet...</p>';
+                return;
+            }
+
+            let html = '';
+
+            if (fastComSpeed.download_mbps !== undefined) {
+                // Speed test results
+                const testsRun = fastComSpeed.tests_run || 1;
+                const method = fastComSpeed.method || 'speedtest';
+                const uploadSpeed = fastComSpeed.upload_mbps || 0;
+                
+                html = `
+                    <div class="text-center">
+                        <h6 class="text-white">Speed Test Results</h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="h6 text-white">Download</p>
+                                <p class="h5 text-white">${fastComSpeed.download_mbps} Mbps</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="h6 text-white">Upload</p>
+                                <p class="h5 text-white">${uploadSpeed} Mbps</p>
+                            </div>
+                        </div>
+                        <small class="text-white-50">Duration: ${fastComSpeed.duration}s</small>
+                        <br><small class="text-white-50">Method: ${method}</small>
+                        <br><small class="text-white-50">Tests: ${testsRun}</small>
+                    </div>
+                `;
+            } else if (fastComSpeed.ping_results) {
+                // Ping-based test results
+                const avgPing = fastComSpeed.average_ping.toFixed(1);
+                html = `
+                    <div class="text-center">
+                        <h6 class="text-white">Average Ping</h6>
+                        <p class="h5 text-white">${avgPing} ms</p>
+                        <small class="text-white-50">Gateway ping test</small>
+                    </div>
+                `;
+            } else if (fastComSpeed.error) {
+                html = `<p class="text-warning">Speed test error: ${fastComSpeed.error}</p>`;
+            } else {
+                html = '<p class="text-muted">Speed test in progress...</p>';
+            }
+
+            if (lastTest) {
+                const testTime = new Date(lastTest).toLocaleTimeString();
+                html += `<br><small class="text-white-50">Last test: ${testTime}</small>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function updatePerformanceHistory(history) {
+            const container = document.getElementById('performanceHistory');
+            
+            if (!history || history.length === 0) {
+                container.innerHTML = '<p class="text-muted">No performance data yet...</p>';
+                return;
+            }
+
+            // Show last 10 entries
+            const recentHistory = history.slice(-10).reverse();
+            let html = '<div class="row">';
+            
+            recentHistory.forEach(entry => {
+                const time = new Date(entry.timestamp).toLocaleTimeString();
+                const latency = entry.latency ? `${entry.latency.toFixed(1)}ms` : 'N/A';
+                const bandwidth = entry.bandwidth ? `${entry.bandwidth.toFixed(1)}MB` : 'N/A';
+                
+                html += `
+                    <div class="col-md-6 mb-2">
+                        <div class="card card-body py-2">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">${time}</small>
+                                <small><strong>Lat: ${latency}</strong> | <strong>BW: ${bandwidth}</strong></small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function refreshData() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+
+        function loadInterfaces() {
+            fetch('/api/interfaces')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('interfaceSelect');
+                    select.innerHTML = '';
+                    
+                    if (data.interfaces && data.interfaces.length > 0) {
+                        data.interfaces.forEach(interface => {
+                            const option = document.createElement('option');
+                            option.value = interface.name;
+                            option.textContent = `${interface.name} (${interface.addresses.map(addr => addr.ip).join(', ')})`;
+                            select.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'No interfaces found';
+                        select.appendChild(option);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading interfaces:', error);
+                    const select = document.getElementById('interfaceSelect');
+                    select.innerHTML = '<option value="">Error loading interfaces</option>';
+                });
+        }
+
+        function selectInterface() {
+            const select = document.getElementById('interfaceSelect');
+            const selectedInterface = select.value;
+            
+            if (selectedInterface) {
+                fetch('/api/select-interface', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        interface_name: selectedInterface
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`Switched to interface: ${selectedInterface}`);
+                        refreshData();
+                    } else {
+                        alert('Failed to switch interface: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error switching interface: ' + error.message);
+                });
+            }
+        }
+
+        function refreshInterfaces() {
+            loadInterfaces();
+        }
+
+        function runSpeedTest() {
+            const resultsDiv = document.getElementById('speedTestResults');
+            resultsDiv.innerHTML = '<p class="text-info"><i class="fas fa-spinner fa-spin"></i> Running speed test...</p>';
+            
+            fetch('/api/run-speed-test')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const uploadSpeed = data.result.upload_mbps || 0;
+                        const method = data.result.method || 'speedtest';
+                        resultsDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-check-circle"></i> Speed Test Results</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <p><strong>Download:</strong> ${data.result.download_mbps || 'N/A'} Mbps</p>
+                                    </div>
+                                    <div class="col-6">
+                                        <p><strong>Upload:</strong> ${uploadSpeed} Mbps</p>
+                                    </div>
+                                </div>
+                                <p><strong>Duration:</strong> ${data.result.duration || 'N/A'} seconds</p>
+                                <p><strong>Method:</strong> ${method}</p>
+                                <small class="text-muted">Test completed at ${new Date().toLocaleTimeString()}</small>
+                            </div>
+                        `;
+                    } else {
+                        resultsDiv.innerHTML = `
+                            <div class="alert alert-danger">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Speed Test Failed</h6>
+                                <p>${data.error}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Speed Test Error</h6>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function resetMetrics() {
+            if (confirm('Are you sure you want to reset all performance metrics?')) {
+                fetch('/api/reset-metrics')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Metrics reset successfully!');
+                            refreshData();
+                        } else {
+                            alert('Failed to reset metrics');
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error resetting metrics: ' + error.message);
+                    });
+            }
+        }
+
+        // Start auto-refresh
+        function startAutoRefresh() {
+            refreshInterval = setInterval(refreshData, 5000); // Refresh every 5 seconds
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadInterfaces();
+            refreshData();
+            startAutoRefresh();
+        });
+
+        // Stop auto-refresh when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                clearInterval(refreshInterval);
+            } else {
+                startAutoRefresh();
+            }
+        });
+    </script>
+</body>
+</html>

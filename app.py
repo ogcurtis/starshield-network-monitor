@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import os
 import requests
 from ping3 import ping
+import random
 
 app = Flask(__name__)
 
@@ -129,40 +130,224 @@ def check_interface_status(interface_name):
     except Exception as e:
         return False, f"Error checking interface: {e}"
 
-def run_fast_com_test():
-    """Run a speed test using Fast.com API"""
+def run_speed_test():
+    """Run a speed test using iperf3 servers"""
     try:
-        # Fast.com provides a simple API
-        response = requests.get('https://api.fast.com/netflix/speedtest/v2', timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            if 'targets' in data and data['targets']:
-                # Get the first target URL
-                target_url = data['targets'][0]['url']
+        print("Running iperf3 speed test...")
+        
+        # List of public iperf3 servers
+        iperf_servers = [
+            {'host': 'iperf.he.net', 'port': 5201},
+            {'host': 'speedtest.serverius.net', 'port': 5002},
+            {'host': 'iperf.par2.as49434.net', 'port': 5201},
+            {'host': 'iperf.biznetnetworks.com', 'port': 5201},
+        ]
+        
+        download_speeds = []
+        upload_speeds = []
+        successful_tests = 0
+        
+        for server in iperf_servers:
+            try:
+                print(f"Testing with {server['host']}:{server['port']}")
                 
-                # Run a simple download test
+                # Test download speed
+                download_result = run_iperf3_test(server['host'], server['port'], 'download')
+                if download_result:
+                    download_speeds.append(download_result['mbps'])
+                    print(f"Download: {download_result['mbps']:.2f} Mbps")
+                
+                # Test upload speed
+                upload_result = run_iperf3_test(server['host'], server['port'], 'upload')
+                if upload_result:
+                    upload_speeds.append(upload_result['mbps'])
+                    print(f"Upload: {upload_result['mbps']:.2f} Mbps")
+                
+                if download_result or upload_result:
+                    successful_tests += 1
+                    
+            except Exception as e:
+                print(f"Server {server['host']} failed: {e}")
+                continue
+        
+        if successful_tests > 0:
+            # Calculate average speeds
+            avg_download = sum(download_speeds) / len(download_speeds) if download_speeds else 0
+            avg_upload = sum(upload_speeds) / len(upload_speeds) if upload_speeds else 0
+            
+            return {
+                'download_mbps': round(avg_download, 2),
+                'upload_mbps': round(avg_upload, 2),
+                'duration': 30,  # iperf3 test duration
+                'data_size': 0,
+                'tests_run': successful_tests,
+                'method': 'iperf3',
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Fallback to HTTP download test
+        print("Falling back to HTTP download test...")
+        return run_http_speed_test()
+        
+    except Exception as e:
+        print(f"iperf3 test error: {e}")
+        return run_http_speed_test()
+
+def run_iperf3_test(host, port, direction):
+    """Run iperf3 test for download or upload"""
+    try:
+        # Full path to iperf3 executable
+        iperf3_path = r"C:\Users\ogcur\AppData\Local\Microsoft\WinGet\Packages\ar51an.iPerf3_Microsoft.Winget.Source_8wekyb3d8bbwe\iperf3.exe"
+        
+        # Check if iperf3 is available
+        result = subprocess.run([iperf3_path, '--version'], capture_output=True, text=True, timeout=5)
+        if result.returncode != 0:
+            print("iperf3 not found, skipping iperf3 test")
+            return None
+        
+        # Run iperf3 test
+        if direction == 'download':
+            cmd = [iperf3_path, '-c', host, '-p', str(port), '-t', '10', '-f', 'm', '--json']
+        else:  # upload
+            cmd = [iperf3_path, '-c', host, '-p', str(port), '-t', '10', '-f', 'm', '--json', '-R']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            if 'end' in data and 'sum_received' in data['end']:
+                # Download test
+                mbps = data['end']['sum_received']['bits_per_second'] / 1000000
+            elif 'end' in data and 'sum_sent' in data['end']:
+                # Upload test
+                mbps = data['end']['sum_sent']['bits_per_second'] / 1000000
+            else:
+                return None
+            
+            return {'mbps': mbps}
+        
+        return None
+        
+    except Exception as e:
+        print(f"iperf3 test failed: {e}")
+        return None
+
+def run_http_speed_test():
+    """Fallback HTTP speed test"""
+    try:
+        print("Running HTTP download speed test...")
+        
+        # Test URLs with known large files
+        test_urls = [
+            'https://httpbin.org/bytes/1048576',  # 1MB file
+            'https://httpbin.org/bytes/2097152',  # 2MB file
+            'https://httpbin.org/bytes/5242880',  # 5MB file
+        ]
+        
+        total_data = 0
+        total_duration = 0
+        successful_tests = 0
+        
+        for url in test_urls:
+            try:
+                print(f"Testing: {url}")
                 start_time = time.time()
-                test_response = requests.get(target_url, timeout=30)
+                response = requests.get(url, timeout=30, stream=True)
                 end_time = time.time()
                 
-                if test_response.status_code == 200:
-                    # Calculate speed (rough estimate)
-                    data_size = len(test_response.content)
+                if response.status_code == 200:
+                    # Read the content to get actual data size
+                    content = response.content
+                    data_size = len(content)
                     duration = end_time - start_time
-                    speed_mbps = (data_size * 8) / (duration * 1024 * 1024)  # Convert to Mbps
                     
-                    return {
-                        'download_mbps': round(speed_mbps, 2),
-                        'duration': round(duration, 2),
-                        'data_size': data_size,
-                        'timestamp': datetime.now().isoformat()
-                    }
+                    if duration > 0:
+                        total_data += data_size
+                        total_duration += duration
+                        successful_tests += 1
+                        
+                        # Calculate speed for this test
+                        speed_mbps = (data_size * 8) / (duration * 1024 * 1024)
+                        print(f"Download test: {data_size/1024/1024:.2f} MB in {duration:.2f}s = {speed_mbps:.2f} Mbps")
+                        
+            except Exception as e:
+                print(f"Test failed for {url}: {e}")
+                continue
         
-        # Fallback to ping-based test
+        if successful_tests > 0 and total_duration > 0:
+            # Calculate average speed
+            avg_speed_mbps = (total_data * 8) / (total_duration * 1024 * 1024)
+            
+            # Estimate upload speed (typically 10-20% of download)
+            estimated_upload = avg_speed_mbps * 0.15
+            
+            return {
+                'download_mbps': round(avg_speed_mbps, 2),
+                'upload_mbps': round(estimated_upload, 2),
+                'duration': round(total_duration, 2),
+                'data_size': total_data,
+                'tests_run': successful_tests,
+                'method': 'http_download',
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Final fallback to ping test
+        print("Falling back to ping test...")
         return run_ping_speed_test()
         
     except Exception as e:
-        print(f"Fast.com test error: {e}")
+        print(f"HTTP speed test error: {e}")
+        return run_ping_speed_test()
+
+def run_speedtest_net():
+    """Run speed test using speedtest.net API"""
+    try:
+        # Use speedtest.net API for more reliable results
+        response = requests.get('https://www.speedtest.net/api/js/servers?engine=js', timeout=30)
+        if response.status_code == 200:
+            servers = response.json()
+            if servers and len(servers) > 0:
+                # Get the closest server
+                server = servers[0]
+                server_url = f"https://{server['host']}/speedtest/upload.php"
+                
+                # Test download speed with a large file
+                download_url = f"https://{server['host']}/speedtest/random{random.randint(1000, 9999)}x{random.randint(1000, 9999)}.jpg"
+                
+                # Download test
+                start_time = time.time()
+                download_response = requests.get(download_url, timeout=30)
+                download_end = time.time()
+                
+                if download_response.status_code == 200:
+                    download_size = len(download_response.content)
+                    download_duration = download_end - start_time
+                    download_mbps = (download_size * 8) / (download_duration * 1024 * 1024)
+                    
+                    # Upload test (simplified)
+                    upload_data = b'0' * 1024 * 1024  # 1MB test data
+                    upload_start = time.time()
+                    upload_response = requests.post(server_url, data=upload_data, timeout=30)
+                    upload_end = time.time()
+                    
+                    upload_duration = upload_end - upload_start
+                    upload_mbps = (len(upload_data) * 8) / (upload_duration * 1024 * 1024) if upload_duration > 0 else 0
+                    
+                    return {
+                        'download_mbps': round(download_mbps, 2),
+                        'upload_mbps': round(upload_mbps, 2),
+                        'duration': round(download_duration + upload_duration, 2),
+                        'data_size': download_size,
+                        'tests_run': 1,
+                        'method': 'speedtest.net',
+                        'timestamp': datetime.now().isoformat()
+                    }
+        
+        # Final fallback to ping test
+        return run_ping_speed_test()
+        
+    except Exception as e:
+        print(f"Speedtest.net error: {e}")
         return run_ping_speed_test()
 
 def run_ping_speed_test():
@@ -279,16 +464,31 @@ def monitor_network():
         print(f"Monitoring error: {e}")
         monitoring_data['status'] = 'error'
 
-def run_scheduled_fast_com_test():
-    """Run Fast.com speed test every 10 minutes"""
+def run_scheduled_speed_test():
+    """Run speed test every 3 minutes"""
     try:
-        print("Running Fast.com speed test...")
-        speed_result = run_fast_com_test()
+        print("Running speed test...")
+        speed_result = run_speed_test()
         monitoring_data['fast_com_speed'] = speed_result
         monitoring_data['last_fast_com_test'] = datetime.now().isoformat()
-        print(f"Fast.com test completed: {speed_result}")
+        
+        # Update bandwidth tracking from Fast.com results
+        if speed_result and 'download_mbps' in speed_result:
+            download_speed = speed_result['download_mbps']
+            
+            # Update best bandwidth (highest speed)
+            if download_speed > monitoring_data['best_bandwidth']:
+                monitoring_data['best_bandwidth'] = download_speed
+                print(f"New best bandwidth: {download_speed} Mbps")
+            
+            # Update worst bandwidth (lowest speed)
+            if download_speed < monitoring_data['worst_bandwidth']:
+                monitoring_data['worst_bandwidth'] = download_speed
+                print(f"New worst bandwidth: {download_speed} Mbps")
+        
+        print(f"Speed test completed: {speed_result}")
     except Exception as e:
-        print(f"Fast.com test error: {e}")
+        print(f"Speed test error: {e}")
 
 def start_monitoring():
     """Start the monitoring thread"""
@@ -299,9 +499,9 @@ def start_monitoring():
     
     def run_scheduler():
         while True:
-            # Run Fast.com test every 10 minutes
-            if datetime.now().minute % 10 == 0 and datetime.now().second < 5:
-                run_scheduled_fast_com_test()
+            # Run speed test every 3 minutes
+            if datetime.now().minute % 3 == 0 and datetime.now().second < 5:
+                run_scheduled_speed_test()
             time.sleep(1)
     
     monitor_thread = threading.Thread(target=run_monitor, daemon=True)
@@ -346,10 +546,10 @@ def select_interface():
         return jsonify({'success': False, 'message': 'No interface specified'})
 
 @app.route('/api/run-speed-test')
-def run_speed_test():
+def api_run_speed_test():
     """Run a speed test"""
     try:
-        speed_result = run_fast_com_test()
+        speed_result = run_speed_test()
         monitoring_data['fast_com_speed'] = speed_result
         monitoring_data['last_fast_com_test'] = datetime.now().isoformat()
         return jsonify({'success': True, 'result': speed_result})
@@ -371,6 +571,6 @@ if __name__ == '__main__':
     # Start monitoring
     start_monitoring()
     print("Starting Starshield Network Monitor...")
-    print("Features: Interface selection, last down time, worst latency, bandwidth tracking, Fast.com integration")
+    print("Features: Interface selection, last down time, worst latency, bandwidth tracking, iperf3 speed tests")
     print("Access at: http://localhost:8080")
     app.run(host='0.0.0.0', port=8080, debug=False)
