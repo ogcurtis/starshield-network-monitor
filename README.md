@@ -19,9 +19,10 @@ A comprehensive Python-based network monitoring solution designed specifically f
 - **Performance History**: Store last 100 performance measurements
 
 ### Speed Testing
-- **Fast.com Integration**: Automated speed testing every 10 minutes
+- **iperf3 Integration**: High-performance speed testing with multiple servers
+- **AWS Server Support**: Optional dedicated iperf3 server for accurate results
 - **Manual Speed Tests**: On-demand speed testing via web interface
-- **Ping-based Fallback**: Alternative speed testing when Fast.com is unavailable
+- **Multiple Fallbacks**: HTTP download and ping-based testing when iperf3 unavailable
 
 ### Web Interface
 - **Responsive Dashboard**: Clean, modern Bootstrap-based interface
@@ -62,6 +63,14 @@ A comprehensive Python-based network monitoring solution designed specifically f
    Open your web browser and navigate to:
    - `http://localhost:8080` (local access)
    - `http://[your-ip]:8080` (network access)
+
+## AWS iperf3 Server (Optional)
+
+For accurate speed testing (200-300 Mbps), set up your own iperf3 server:
+
+1. **Quick Setup**: Follow `scripts/Frankfurt_Setup_Quick.md`
+2. **Test Server**: `python scripts/test_iperf3_server.py YOUR_IP`
+3. **Update App**: `python scripts/update_aws_server.py YOUR_IP`
 
 ## Configuration
 
@@ -125,6 +134,14 @@ Starshield Web Server/
 ├── requirements.txt       # Python dependencies
 ├── templates/
 │   └── dashboard.html     # Web interface template
+├── scripts/               # Utility scripts
+│   ├── README.md         # Scripts documentation
+│   ├── create_iperf3_server.py    # AWS EC2 setup
+│   ├── cleanup_iperf3_server.py   # AWS cleanup
+│   ├── update_aws_server.py       # Update app config
+│   ├── test_iperf3_server.py      # Test iperf3 server
+│   ├── AWS_iperf3_Setup_Guide.md  # Complete setup guide
+│   └── Frankfurt_Setup_Quick.md   # Quick setup guide
 ├── setup.bat             # Setup script
 ├── start.bat             # Start script
 ├── README.md             # This file
