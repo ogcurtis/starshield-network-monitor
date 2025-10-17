@@ -211,12 +211,12 @@
                 </div>
             </div>
 
-            <!-- Fast.com Speed Test -->
+            <!-- iperf3 Speed Test -->
             <div class="col-md-6">
                 <div class="metric-card history-card">
                     <div class="text-center">
                         <h5><i class="fas fa-bolt"></i> Speed Test Results</h5>
-                        <div id="fastComResults">
+                        <div id="iperf3Results">
                             <p class="text-muted">No speed test data yet...</p>
                         </div>
                         <div class="mt-2">
@@ -234,7 +234,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-tachometer-alt"></i> Speed Testing & Controls</h5>
+                        <h5><i class="fas fa-tachometer-alt"></i> iperf3 Speed Testing & Controls</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -360,7 +360,7 @@
             const percentage = Math.min((parseFloat(totalMB) / 100) * 100, 100);
             bandwidthBar.style.width = `${percentage}%`;
 
-            // Update performance records (Fast.com speeds)
+            // Update performance records (iperf3 speeds)
             document.getElementById('bestBandwidth').textContent = `${(data.best_bandwidth || 0).toFixed(1)} Mbps`;
             document.getElementById('worstBandwidth').textContent = data.worst_bandwidth === Infinity ? 
                 '∞ Mbps' : `${(data.worst_bandwidth || 0).toFixed(1)} Mbps`;
@@ -370,28 +370,28 @@
             document.getElementById('dnsInfo').textContent = data.dns || '198.54.100.65';
             document.getElementById('interfaceName').textContent = data.selected_interface || 'Ethernet 4';
 
-            // Update Fast.com results
-            updateFastComResults(data.fast_com_speed, data.last_fast_com_test);
+            // Update iperf3 results
+            updateIperf3Results(data.fast_com_speed, data.last_fast_com_test);
 
             // Update performance history
             updatePerformanceHistory(data.performance_history);
         }
 
-        function updateFastComResults(fastComSpeed, lastTest) {
-            const container = document.getElementById('fastComResults');
+        function updateIperf3Results(iperf3Speed, lastTest) {
+            const container = document.getElementById('iperf3Results');
 
-            if (!fastComSpeed) {
+            if (!iperf3Speed) {
                 container.innerHTML = '<p class="text-muted">No speed test data yet...</p>';
                 return;
             }
 
             let html = '';
 
-            if (fastComSpeed.download_mbps !== undefined) {
+            if (iperf3Speed.download_mbps !== undefined) {
                 // Speed test results
-                const testsRun = fastComSpeed.tests_run || 1;
-                const method = fastComSpeed.method || 'speedtest';
-                const uploadSpeed = fastComSpeed.upload_mbps || 0;
+                const testsRun = iperf3Speed.tests_run || 1;
+                const method = iperf3Speed.method || 'iperf3';
+                const uploadSpeed = iperf3Speed.upload_mbps || 0;
                 
                 html = `
                     <div class="text-center">
@@ -399,21 +399,21 @@
                         <div class="row">
                             <div class="col-6">
                                 <p class="h6 text-white">Download</p>
-                                <p class="h5 text-white">${fastComSpeed.download_mbps} Mbps</p>
+                                <p class="h5 text-white">${iperf3Speed.download_mbps} Mbps</p>
                             </div>
                             <div class="col-6">
                                 <p class="h6 text-white">Upload</p>
                                 <p class="h5 text-white">${uploadSpeed} Mbps</p>
                             </div>
                         </div>
-                        <small class="text-white-50">Duration: ${fastComSpeed.duration}s</small>
+                        <small class="text-white-50">Duration: ${iperf3Speed.duration}s</small>
                         <br><small class="text-white-50">Method: ${method}</small>
                         <br><small class="text-white-50">Tests: ${testsRun}</small>
                     </div>
                 `;
-            } else if (fastComSpeed.ping_results) {
+            } else if (iperf3Speed.ping_results) {
                 // Ping-based test results
-                const avgPing = fastComSpeed.average_ping.toFixed(1);
+                const avgPing = iperf3Speed.average_ping.toFixed(1);
                 html = `
                     <div class="text-center">
                         <h6 class="text-white">Average Ping</h6>
@@ -421,8 +421,8 @@
                         <small class="text-white-50">Gateway ping test</small>
                     </div>
                 `;
-            } else if (fastComSpeed.error) {
-                html = `<p class="text-warning">Speed test error: ${fastComSpeed.error}</p>`;
+            } else if (iperf3Speed.error) {
+                html = `<p class="text-warning">Speed test error: ${iperf3Speed.error}</p>`;
             } else {
                 html = '<p class="text-muted">Speed test in progress...</p>';
             }
