@@ -135,12 +135,16 @@ def run_speed_test():
     try:
         print("Running iperf3 speed test...")
         
-        # List of public iperf3 servers
+        # List of public iperf3 servers (add your AWS server IP here)
         iperf_servers = [
-            {'host': 'iperf.he.net', 'port': 5201},
-            {'host': 'speedtest.serverius.net', 'port': 5002},
+            # Add your AWS EC2 iperf3 server here for best results
+            # {'host': 'YOUR_AWS_EC2_IP', 'port': 5201},
+            
+            # Public iperf3 servers (fallback)
             {'host': 'iperf.par2.as49434.net', 'port': 5201},
             {'host': 'iperf.biznetnetworks.com', 'port': 5201},
+            {'host': 'iperf.he.net', 'port': 5201},
+            {'host': 'speedtest.serverius.net', 'port': 5002},
         ]
         
         download_speeds = []
