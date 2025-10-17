@@ -26,7 +26,7 @@ def cleanup_iperf3_server():
         print(f"Cleaning up iperf3 server: {instance_id}")
         
         # Initialize EC2 client
-        ec2 = boto3.client('ec2', region_name='us-east-1')
+        ec2 = boto3.client('ec2', region_name='eu-central-1')  # Frankfurt region
         
         # Terminate instance
         print("Terminating instance...")

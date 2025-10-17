@@ -195,7 +195,7 @@ def main():
     
     try:
         # Initialize EC2 client
-        ec2 = boto3.client('ec2', region_name='us-east-1')
+        ec2 = boto3.client('ec2', region_name='eu-central-1')  # Frankfurt region
         
         # Create security group
         security_group_id = create_security_group(ec2)

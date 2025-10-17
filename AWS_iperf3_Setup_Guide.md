@@ -4,8 +4,9 @@
 
 ### 1. Create EC2 Instance
 1. Go to AWS Console → EC2 → Launch Instance
-2. Choose **Amazon Linux 2 AMI** (Free tier eligible)
-3. Select **t3.micro** instance type
+2. **Select Frankfurt (eu-central-1) region** for best performance in Germany
+3. Choose **Amazon Linux 2 AMI** (Free tier eligible)
+4. Select **t3.micro** instance type
 4. Create or select a key pair
 5. Configure security group:
    - SSH (22) from anywhere (0.0.0.0/0)
@@ -59,7 +60,8 @@ iperf_servers = [
 ### Prerequisites
 1. Install AWS CLI: `pip install awscli`
 2. Configure credentials: `aws configure`
-3. Install boto3: `pip install boto3`
+3. **Set region to Frankfurt**: `aws configure set region eu-central-1`
+4. Install boto3: `pip install boto3`
 
 ### Run the Script
 ```bash
@@ -77,10 +79,10 @@ python cleanup_iperf3_server.py
 - **Storage**: 30GB EBS storage free for 12 months
 
 ## Expected Performance
-With your own iperf3 server, you should see:
+With your own iperf3 server in Frankfurt, you should see:
 - **Download**: 200-300 Mbps (your actual connection speed)
 - **Upload**: 200-300 Mbps (your actual connection speed)
-- **Latency**: 10-50ms (depending on your location vs AWS region)
+- **Latency**: 5-15ms (excellent for Germany)
 
 ## Troubleshooting
 
