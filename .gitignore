@@ -71,3 +71,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# AWS credentials and keys
+*.pem
+iperf3_server_info.json
+aws_credentials.txt

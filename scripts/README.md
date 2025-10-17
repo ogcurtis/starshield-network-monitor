@@ -24,6 +24,11 @@ This directory contains utility scripts for the Starshield Network Monitor proje
 **Usage**: `python test_iperf3_server.py <SERVER_IP> [PORT] [DURATION]`
 **Example**: `python test_iperf3_server.py 3.15.123.45 5201 10`
 
+### `setup_aws_credentials.py`
+**Purpose**: Interactive setup of AWS credentials as environment variables
+**Usage**: `python setup_aws_credentials.py`
+**Features**: Tests credentials, creates .env file, guides through setup
+
 ## Documentation
 
 ### `AWS_iperf3_Setup_Guide.md`
@@ -35,10 +40,36 @@ Quick 5-minute setup guide specifically for Frankfurt region (optimized for Germ
 ## Prerequisites
 
 Before running any AWS scripts, ensure you have:
-1. AWS CLI installed: `pip install awscli`
-2. AWS credentials configured: `aws configure`
-3. Region set to Frankfurt: `aws configure set region eu-central-1`
-4. boto3 installed: `pip install boto3`
+1. boto3 installed: `pip install boto3`
+2. AWS credentials configured (choose one method below)
+
+### AWS Credentials Setup
+
+#### Option 1: Environment Variables (Recommended)
+```bash
+# Set environment variables
+set AWS_ACCESS_KEY_ID=your_access_key
+set AWS_SECRET_ACCESS_KEY=your_secret_key
+set AWS_DEFAULT_REGION=eu-central-1
+
+# Or use the setup script
+python scripts/setup_aws_credentials.py
+```
+
+#### Option 2: AWS CLI
+```bash
+# Install AWS CLI
+pip install awscli
+
+# Configure credentials
+aws configure
+aws configure set region eu-central-1
+```
+
+#### Option 3: .env File
+1. Copy `scripts/aws_credentials_template.txt` to `.env`
+2. Fill in your actual credentials
+3. Load with: `python -c "from dotenv import load_dotenv; load_dotenv()"`
 
 ## Quick Start
 

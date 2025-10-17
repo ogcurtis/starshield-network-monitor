@@ -9,6 +9,7 @@ import time
 import json
 import subprocess
 import sys
+import os
 
 def create_security_group(ec2, group_name="iperf3-server-sg"):
     """Create security group for iperf3 server"""
@@ -189,13 +190,50 @@ def test_iperf3_connection(public_ip):
         print(f"Error testing iperf3: {e}")
         return False
 
+def check_aws_credentials():
+    """Check if AWS credentials are properly configured"""
+    try:
+        # Check environment variables first
+        access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        region = os.getenv('AWS_DEFAULT_REGION', 'eu-central-1')
+        
+        if not access_key or not secret_key:
+            print("AWS credentials not found in environment variables.")
+            print("Please set the following environment variables:")
+            print("  AWS_ACCESS_KEY_ID")
+            print("  AWS_SECRET_ACCESS_KEY")
+            print("  AWS_DEFAULT_REGION (optional, defaults to eu-central-1)")
+            print("\nOr configure using: aws configure")
+            return False
+        
+        print(f"Using AWS credentials from environment variables")
+        print(f"Region: {region}")
+        return True
+        
+    except Exception as e:
+        print(f"Error checking AWS credentials: {e}")
+        return False
+
 def main():
     """Main function"""
     print("Creating AWS EC2 iperf3 Server...")
     
+    # Check AWS credentials
+    if not check_aws_credentials():
+        print("\nTo set up AWS credentials, you can:")
+        print("1. Set environment variables:")
+        print("   set AWS_ACCESS_KEY_ID=your_access_key")
+        print("   set AWS_SECRET_ACCESS_KEY=your_secret_key")
+        print("   set AWS_DEFAULT_REGION=eu-central-1")
+        print("\n2. Or use AWS CLI:")
+        print("   aws configure")
+        return
+    
     try:
-        # Initialize EC2 client
-        ec2 = boto3.client('ec2', region_name='eu-central-1')  # Frankfurt region
+        # Initialize EC2 client with environment variables
+        region = os.getenv('AWS_DEFAULT_REGION', 'eu-central-1')
+        ec2 = boto3.client('ec2', region_name=region)
         
         # Create security group
         security_group_id = create_security_group(ec2)
